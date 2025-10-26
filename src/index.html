@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Todo App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 600px;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .add-task {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        #taskInput {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #taskInput:focus {
+            border-color: #667eea;
+        }
+
+        #addBtn {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #addBtn:hover {
+            background: #5568d3;
+        }
+
+        #addBtn:active {
+            transform: scale(0.98);
+        }
+
+        .task-list {
+            list-style: none;
+        }
+
+        .task-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .task-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .task-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .task-title {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .task-time {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .delete-btn {
+            padding: 8px 16px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .delete-btn:hover {
+            background: #ee5a52;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .task-count {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 My Todo List</h1>
+
+        <div class="add-task">
+            <input
+                type="text"
+                id="taskInput"
+                placeholder="What needs to be done?"
+                onkeypress="handleKeyPress(event)"
+            />
+            <button id="addBtn" onclick="addTask()">Add Task</button>
+        </div>
+
+        <ul class="task-list" id="taskList">
+            <!-- Tasks will be added here -->
+        </ul>
+
+        <div class="task-count" id="taskCount">
+            0 tasks
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        // Load tasks when page loads
+        window.onload = function() {
+            loadTasks();
+        };
+
+        // Handle Enter key press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                addTask();
+            }
+        }
+
+        // Load all tasks from API
+        async function loadTasks() {
+            try {
+                const response = await fetch(`${API_URL}/tasks`);
+                const data = await response.json();
+
+                const taskList = document.getElementById('taskList');
+                taskList.innerHTML = '';
+
+                if (data.tasks.length === 0) {
+                    taskList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">✨</div>
+                            <div>No tasks yet. Add one to get started!</div>
+                        </div>
+                    `;
+                } else {
+                    data.tasks.forEach(task => {
+                        addTaskToDOM(task);
+                    });
+                }
+
+                updateTaskCount(data.count);
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+
+        // Add new task
+        async function addTask() {
+            const input = document.getElementById('taskInput');
+            const title = input.value.trim();
+
+            if (!title) {
+                alert('Please enter a task!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title: title })
+                });
+
+                const task = await response.json();
+
+                // Clear input
+                input.value = '';
+
+                // Reload tasks to show the new one
+                loadTasks();
+            } catch (error) {
+                console.error('Error adding task:', error);
+                alert('Failed to add task');
+            }
+        }
+
+        // Delete task
+        async function deleteTask(taskId) {
+            try {
+                await fetch(`${API_URL}/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+
+                // Reload tasks
+                loadTasks();
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                alert('Failed to delete task');
+            }
+        }
+
+        // Add task to DOM
+        function addTaskToDOM(task) {
+            const taskList = document.getElementById('taskList');
+
+            const li = document.createElement('li');
+            li.className = 'task-item';
+            li.innerHTML = `
+                <div class="task-content">
+                    <div>
+                        <div class="task-title">${escapeHtml(task.title)}</div>
+                        <div class="task-time">${formatTime(task.created_at)}</div>
+                    </div>
+                </div>
+                <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+            `;
+
+            taskList.appendChild(li);
+        }
+
+        // Update task count
+        function updateTaskCount(count) {
+            const taskCount = document.getElementById('taskCount');
+            taskCount.textContent = `${count} ${count === 1 ? 'task' : 'tasks'}`;
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+            if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+            return 'Just now';
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
